@@ -4,7 +4,11 @@ import (
     "fmt"
     "net/http"
     "github.com/gorilla/mux"
+    "strings"
 )
+
+//router := mux.NewRouter() 这种写法会报错，包级别的变量声明不能用 :=
+var router = mux.NewRouter()
 
 func homeHandler(w http.ResponseWriter, r *http.Request) {
     //w.Header().Set("Content-type", "text/html;charset=utf-8")
@@ -37,6 +41,26 @@ func articlesStoreHandler(w http.ResponseWriter, r *http.Request) {
     fmt.Fprint(w, "创建新的文章")
 }
 
+func articlesCreateHandler(w http.ResponseWriter, r *http.Request) {
+    html := `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>创建文章 —— 我的技术博客</title>
+</head>
+<body>
+    <form action="%s" method="post">
+        <p><input type="text" name="title"></p>
+        <p><textarea name="body" cols="30" rows="10"></textarea></p>
+        <p><button type="submit">提交</button></p>
+    </form>
+</body>
+</html>
+`
+    storeURL, _ := router.Get("articles.store").URL()
+    fmt.Fprintf(w, html, storeURL)
+}
+
 func forceHtmlMiddleware(next http.Handler) http.Handler {
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         // 1、设置标头
@@ -46,14 +70,25 @@ func forceHtmlMiddleware(next http.Handler) http.Handler {
     })
 }
 
+func removeTrailingSlash(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // 1、除首页意外，移除所有请求的路径后面的斜杠
+        if r.URL.Path != "/" {
+            r.URL.Path = strings.TrimSuffix(r.URL.Path, "/")
+        }
+        next.ServeHTTP(w, r)
+    })
+}
+ 
 func main() {
-    router := mux.NewRouter()
-    router.HandleFunc("/home", homeHandler).Methods("GET").Name("home")
+    
+    router.HandleFunc("/", homeHandler).Methods("GET").Name("home")
     router.HandleFunc("/about", aboutHandler).Methods("GET").Name("about")
 
     router.HandleFunc("/articles/{id:[0-9]+}", articlesShowsHandler).Methods("GET").Name("articles.show")
     router.HandleFunc("/articles", articlesIndexHandler).Methods("GET").Name("atciles.index")
     router.HandleFunc("/articles", articlesStoreHandler).Methods("POST").Name("articles.store")
+    router.HandleFunc("/articles/create", articlesCreateHandler).Methods("GET").Name("artciles.create")
 
     // 自定义 404页面
     router.NotFoundHandler = http.HandlerFunc(notFoundHandler)
@@ -67,5 +102,5 @@ func main() {
     articleUrl, _ := router.Get("articles.show").URL("id", "23")
     fmt.Println("articleURL:", articleUrl)
 
-    http.ListenAndServe(":8080", router)
+    http.ListenAndServe(":8080", removeTrailingSlash(router))
 }
