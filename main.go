@@ -3,9 +3,10 @@ package main
 import (
     "fmt"
     "net/http"
+    "strings"
 )
 
-func handlerFunc(w http.ResponseWriter, r *http.Request) {
+func defaultHandler(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-type", "text/html;charset=utf-8")
     if r.URL.Path == "/" {
         fmt.Fprint(w, "<h1>Hello, 欢迎来到 goblog！</h1>")
@@ -16,13 +17,21 @@ func handlerFunc(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-func handlerAboutFunc(w http.ResponseWriter, r *http.Request) {
+func aboutHandler(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Content-type", "text/html;charset=utf-8")
     fmt.Fprint(w, "此博客是用以记录编程笔记，如您有反馈或建议，请联系 "+
             "<a href=\"mailto:summer@example.com\">summer@example.com</a>")
 }
 
+
 func main() {
-    http.HandleFunc("/", handlerFunc)
-    http.ListenAndServe(":8080", nil)
+    router := http.NewServeMux()
+    router.HandleFunc("/", defaultHandler)
+    router.HandleFunc("/about", aboutHandler)
+
+    router.HandleFunc("/article/", func(w http.ResponseWriter, r *http.Request) {
+        id := strings.SplitN(r.URL.Path, "/", 3)[2]
+        fmt.Fprint(w, "文章 ID：" + id)
+    })
+    http.ListenAndServe(":8080", router)
 }
